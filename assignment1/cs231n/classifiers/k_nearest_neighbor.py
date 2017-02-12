@@ -97,7 +97,7 @@ class KNearestNeighbor(object):
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      dists[i] = np.sqrt(np.sum(np.abs(self.X_train - X[i, :]) ** 2, axis = 1))
+      dists[i] = np.sqrt(np.sum(np.abs(self.X_train - X[i, :]) ** 2, axis = 1)) #inline computation
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -173,25 +173,16 @@ class KNearestNeighbor(object):
       # A list of length k storing the labels of the k nearest neighbors to
       # the ith test point.
       closest_y = []
-      #########################################################################
-      # TODO:                                                                 #
-      # Use the distance matrix to find the k nearest neighbors of the ith    #
-      # testing point, and use self.y_train to find the labels of these       #
-      # neighbors. Store these labels in closest_y.                           #
-      # Hint: Look up the function numpy.argsort.                             #
-      #########################################################################
-      k_nearest_neighbors_indices = np.argsort(dists[i, :])[:k]
-      #closest_y = [self.y_train[x][0] for x in k_nearest_neighbors_indices]
+
+      #get indecies of K training images with smallest L2 distance to this test image
+      k_nearest_neighbors_indices = np.argsort(dists[i, :])[:k]  
+      #Get labels corresponding to these K images, and flatten the np array to rank1 array
       closest_y = self.y_train[k_nearest_neighbors_indices].flatten()
-      #########################################################################
-      # TODO:                                                                 #
-      # Now that you have found the labels of the k nearest neighbors, you    #
-      # need to find the most common label in the list closest_y of labels.   #
-      # Store this label in y_pred[i]. Break ties by choosing the smaller     #
-      # label.                                                                #
-      #########################################################################
+
+      #count the occurance of label in K nearest labels and return the most frequent one
       occurance_map = Counter(closest_y)
       y_pred[i] = sorted(occurance_map, key= occurance_map.get, reverse = True)[0] 
+
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################

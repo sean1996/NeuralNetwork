@@ -74,6 +74,8 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
+
+    #Stage the feed forward process into three sub-steps and cache them for back propagation
     hidden = X.dot(W1) + b1
     hidden_ReLu = np.maximum(hidden, 0)
     scores = hidden_ReLu.dot(W2) + b2
@@ -96,19 +98,23 @@ class TwoLayerNet(object):
     # regularization loss by 0.5                                                #
     #############################################################################
     for row_training in range(N):
+
+      #shifting values in scores by the maximum element in the array to deal with numeric instability
       score_row = scores[row_training]
       log_c = np.max(score_row)
       score_row -= log_c
 
+      #compute the sum of softmax denominator and loss
       sum_exp_scores = np.sum(np.exp(score_row))
       loss +=  -1 * np.log(np.exp(score_row[y[row_training]]) / sum_exp_scores)
 
+    #Right now the loss is a sum over all training examples, but we want it
+    # to be an average instead so we divide by num_train.
     loss /= N
+
+    #L2 regulation regarding to W1 and W2
     loss +=  0.5* reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
 
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
 
     # Backward pass: compute gradients
     grads = {}
@@ -139,9 +145,6 @@ class TwoLayerNet(object):
     #Question:
     #1. Why applying regulation on gradients on line 131
     #2. The starting value of back propagation from the output layer
-
-
-
 
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -202,10 +205,13 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
+
+      #perform SGD
       self.params['W1'] -= grads['W1']* learning_rate
       self.params['W2'] -= grads['W2'] * learning_rate
       self.params['b1'] -= grads['b1'] * learning_rate
       self.params['b2'] -= grads['b2'] * learning_rate
+      
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
