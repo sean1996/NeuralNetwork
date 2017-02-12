@@ -118,22 +118,28 @@ class TwoLayerNet(object):
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
 
-    #wtf does this part even mean
+    #Shift the scores down by the maximum number in the list to avoid numeric instability
     shift_scores = scores - (np.max(scores, axis = 1).reshape(-1,1))
     softmax_output = np.exp(shift_scores)/np.sum(np.exp(shift_scores), axis = 1).reshape(-1,1)
     dscores = softmax_output.copy()
+
+    #what does this two line do?
     dscores[range(N), list(y)] -= 1
     dscores /= N
 
-    #Why do we need regulation
+    #Compute gradients using back propagation
     grads['W2'] = hidden_ReLu.T.dot(dscores) + reg * W2
     grads['b2'] = np.sum(dscores, axis = 0)
     d_hidden_Relu = dscores.dot(W2.T)
-
     d_hidden = d_hidden_Relu * (hidden_ReLu > 0)
     dX = d_hidden.dot(W1.T)
     grads['W1'] = X.T.dot(d_hidden) + reg * W1
     grads['b1'] = np.sum(d_hidden, axis = 0)
+
+    #Question:
+    #1. Why applying regulation on gradients on line 131
+    #2. The starting value of back propagation from the output layer
+
 
 
 
