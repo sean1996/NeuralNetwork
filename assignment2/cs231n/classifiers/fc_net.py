@@ -251,12 +251,19 @@ class FullyConnectedNet(object):
     # layer, etc.                                                              #
     ############################################################################
 
-    cacheList = []    
+    cacheList = [] 
+    cacheList_dropout = [] 
     current_layer_input = X
     #compute forward pass for (L - 1) affine-relu layers 
     for i in range(self.num_layers - 1):
+      #compute forward pass for affine-relu layer and store layer cache
       current_layer_output, current_cache = affine_relu_forward(current_layer_input, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
       cacheList.append(current_cache)
+      #apply dropout and store the dropout cache, dropout is only applied to RELU layers but not the last affine linear layer
+      if self.use_dropout:
+        current_layer_output, cache_dropout = dropout_forward(current_layer_output, self.dropout_param)
+        cacheList_dropout.append(cache_dropout)
+
       current_layer_input = current_layer_output
     #compute forward pass for the last affine layer
     scores, current_cache = affine_forward(current_layer_input, self.params['W' + str(self.num_layers)], self.params['b' + str(self.num_layers)])
@@ -297,9 +304,14 @@ class FullyConnectedNet(object):
     #compute the gradient of all (L-1) affine-relu layers
     for i in range(self.num_layers - 2, -1, -1):
       array_index = i
-      dx, dw, db = affine_relu_backward(dout_current, cacheList[array_index])
-      #compute loss regulation on this sandwitch layer
+      #L2 regulation
       loss += 0.5 * self.reg * np.sum(self.params['W' + str(array_index + 1)] * self.params['W' + str(array_index + 1)])
+      #compute the gradient of the dropout layer on this sandwitch layer
+      if self.use_dropout:
+        dout_current = dropout_backward(dout_current, cacheList_dropout[array_index])
+      #compute loss regulation on this sandwitch layer
+      dx, dw, db = affine_relu_backward(dout_current, cacheList[array_index])
+      
       grads['W' + str(array_index + 1)] = dw + self.reg * self.params['W' + str(array_index + 1)]
       grads['b' + str(array_index + 1)] = db
       dout_current = dx
