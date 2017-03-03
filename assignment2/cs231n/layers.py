@@ -179,7 +179,21 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    #compute mean and var for each of D features of input data
+    minibatch_mean = np.mean(x, axis = 0) #shape of [D,], mean of each coloumn
+    minibatch_var = np.var(x, axis = 0) #shape of [D,], variance of each column
+    #normalize input data 
+    sqrtvar = np.sqrt(minibatch_var + eps)
+    invsqrt = 1/sqrtvar
+    x_normalized = (x - minibatch_mean) * invsqrt
+    #scale and shift data
+    out = gamma * x_normalized + beta
+    #update running average and variance
+    running_mean = momentum * running_mean + (1 - momentum) * minibatch_mean
+    running_var = momentum * running_var + (1 - momentum) * minibatch_var
+    #store intermediate values into cache for computing backwards gradients
+    cache = (gamma, beta, minibatch_mean, minibatch_var, sqrtvar, invsqrt, x_normalized, x, eps)
+
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -190,7 +204,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+    scale = gamma / (np.sqrt(running_var  + eps))
+    out = x * scale + (beta - running_mean * scale)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -222,11 +237,38 @@ def batchnorm_backward(dout, cache):
   - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
   """
   dx, dgamma, dbeta = None, None, None
+  gamma, beta, minibatch_mean, minibatch_var, sqrtvar, invsqrt, x_normalized, x, eps = cache
+  N =  dout.shape[0]
+  D = dout.shape[1]
+
   #############################################################################
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+
+   # Because the summation of beta during the forward pass is a row-wise summation, 
+   # during the backward pass we need to sum up the gradient over all of its columns
+  dbeta = np.sum(dout, axis = 0) #[D,]
+   # Because the summation of beta during the forward pass is a row-wise mutiplication, 
+   # during the backward pass we need to sum up the gradient over all of its columns
+  dgamma = np.sum(x_normalized * dout, axis = 0) #[D,]
+
+  #BackProp
+  dx_normalized = gamma * dout
+  dxMinusMean1 = dx_normalized * invsqrt    #[N,D]
+  dinvsqrt = np.sum((x - minibatch_mean) * dx_normalized, axis = 0) #perform a element wise between two matrixs, shape[D,]
+  dsqrtvar = (-1.0) / (sqrtvar ** 2) * dinvsqrt
+  dvar = 0.5 * 1. /np.sqrt(minibatch_var+eps) * dsqrtvar
+  dxMinusMean2Sqr = 1.0/N * np.ones((N, D)) * dvar
+
+  dxMinusMean2 =  2 * (x - minibatch_mean)  * dxMinusMean2Sqr
+  dxMinusMean = dxMinusMean1 + dxMinusMean2
+  dx1 = dxMinusMean
+  dmean = np.sum(-1 * dxMinusMean, axis = 0)
+  dx2 = 1.0/N * np.ones((N,D)) * dmean
+  dx = dx1 + dx2
+
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
