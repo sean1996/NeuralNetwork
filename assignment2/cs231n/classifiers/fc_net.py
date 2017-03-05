@@ -185,10 +185,23 @@ class FullyConnectedNet(object):
     # parameters should be initialized to zero.                                #
     ############################################################################
     current_input_dim = input_dim
+
+    #Batch norm would apply to the input layer even before the input data is feeded into first relu layer
+    if self.use_batchnorm:
+        self.params['gamma%d' %1] = np.ones(input_dim)
+        self.params['beta%d' %1] = np.zeros(input_dim)
+
     for index, current_hidden_dim in enumerate(hidden_dims):
+      #initialize gammma and beta for batch norm, tricky: the gamma and betta size of layer 2 is the size of hidden neurons in layer 1 RELU
+      if self.use_batchnorm and index + 2 != self.num_layers:
+        self.params['gamma%d' %(index + 2)] = np.ones(current_hidden_dim)
+        self.params['beta%d' %(index + 2)] = np.zeros(current_hidden_dim)
+      #initizalize W and b for (N-1) relu layers
       self.params['W' + str(index + 1)] = weight_scale * np.random.randn(current_input_dim, current_hidden_dim)
       self.params['b' + str(index + 1)] = weight_scale * np.zeros(current_hidden_dim)
       current_input_dim = current_hidden_dim
+
+
     #intialize the W and b for final affine layer
     self.params['W' + str(self.num_layers)] = weight_scale * np.random.randn(current_input_dim, num_classes)
     self.params['b' + str(self.num_layers)] = weight_scale * np.zeros(num_classes)
@@ -253,9 +266,14 @@ class FullyConnectedNet(object):
 
     cacheList = [] 
     cacheList_dropout = [] 
+    cacheList_batch = []
     current_layer_input = X
     #compute forward pass for (L - 1) affine-relu layers 
     for i in range(self.num_layers - 1):
+      if self.use_batchnorm:
+        current_layer_input, cache_batchNorm = batchnorm_forward(current_layer_input, self.params['gamma%d' %(i + 1)], self.params['beta%d' %(i + 1)], self.bn_params[i])
+        cacheList_batch.append(cache_batchNorm)
+
       #compute forward pass for affine-relu layer and store layer cache
       current_layer_output, current_cache = affine_relu_forward(current_layer_input, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
       cacheList.append(current_cache)
@@ -309,11 +327,18 @@ class FullyConnectedNet(object):
       #compute the gradient of the dropout layer on this sandwitch layer
       if self.use_dropout:
         dout_current = dropout_backward(dout_current, cacheList_dropout[array_index])
+
       #compute loss regulation on this sandwitch layer
       dx, dw, db = affine_relu_backward(dout_current, cacheList[array_index])
-      
+
+      if self.use_batchnorm:
+        dx, dgamma, dbeta = batchnorm_backward(dx, cacheList_batch[array_index])
       grads['W' + str(array_index + 1)] = dw + self.reg * self.params['W' + str(array_index + 1)]
       grads['b' + str(array_index + 1)] = db
+      if self.use_batchnorm:
+        grads['gamma%d'%(array_index+1)] = dgamma
+        grads['beta%d'%(array_index+1)] = dbeta
+
       dout_current = dx
 
     ############################################################################
