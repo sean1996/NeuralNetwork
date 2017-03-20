@@ -415,7 +415,28 @@ def conv_forward_naive(x, w, b, conv_param):
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  #parameter and dimension set up
+  stride, pad = conv_param['stride'], conv_param['pad']
+  N,C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  H_output = 1 + (H + 2 * pad - HH) / stride
+  W_output = 1 + (W + 2 * pad - WW) / stride
+
+  #initialize out to all 0's so it will support array indexing
+  out = np.zeros((N , F , H_output, W_output))
+
+  #pad the input array with 0's
+  x_pad = np.pad(x, ((0,), (0,), (pad,), (pad,)), mode='constant', constant_values=0)
+
+  for i in range(H_output):
+    for j in range(W_output):
+      #generate the sub_volumn of x that neuron(i, j) in all C output layers are looking at
+      x_sub = x_pad[:, :, i*stride:i*stride+HH, j*stride:j*stride+WW]
+      #Apply each filter to the sub_volumn of N input images, where N results are computed in one-shot
+      for filter_index in range(F):
+        #w: [C, HH, WW]
+        out[: ,filter_index, i, j] = np.sum(x_sub * w[filter_index, :, :, :], axis = (1,2,3)) + b[filter_index]
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -440,7 +461,39 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  #parameter and dimension set up
+  x, w, b, conv_param = cache
+  stride, pad = conv_param['stride'], conv_param['pad']
+  N,C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  H_output = 1 + (H + 2 * pad - HH) / stride
+  W_output = 1 + (W + 2 * pad - WW) / stride
+
+  #pad the input array with 0's
+  x_pad = np.pad(x, ((0,), (0,), (pad,), (pad,)), mode='constant', constant_values=0)
+
+  #initialize out to all 0's so it will support array indexing
+  out = np.zeros((N , F , H_output, W_output))
+  dx = np.zeros_like(x)
+  dx_pad = np.zeros_like(x_pad)
+  dw = np.zeros_like(w)
+  db = np.zeros_like(b)
+
+  db = np.sum(dout, axis = (0,2,3))
+
+  for i in range(H_output):
+    for j in range(W_output):
+      #generate the sub_volumn of x that neuron(i, j) in all C output layers are looking at
+      x_sub = x_pad[:, :, i*stride:i*stride+HH, j*stride:j*stride+WW]
+      #Apply each filter to the sub_volumn of N input images, where N results are computed in one-shot
+      for filter_index in range(F):#compute dw
+        dw[filter_index ,: ,: ,:] += np.sum(x_sub * (dout[:, filter_index, i, j])[:, None, None, None], axis=0)
+      for n in range(N): #compute dx_pad
+        dx_pad[n, :, i*stride:i*stride+HH, j*stride:j*stride+WW] += np.sum((w[:, :, :, :] * 
+                                             (dout[n, :, i, j])[:,None ,None, None]), axis=0)
+
+  dx = dx_pad[:,:,pad:-pad,pad:-pad]
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -466,7 +519,18 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  #set up parameters
+  N, C, H, W = x.shape
+  pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+  H_out = (H-pool_height)/stride+1
+  W_out = (W-pool_width)/stride+1
+  #init output layer
+  out = np.zeros((N,C,H_out,W_out))
+
+  for i in range(H_out):
+    for j in range(W_out):
+      #max_pool
+      out[:, :, i, j] = np.max(x[:, :, i*stride : i*stride+pool_height, j*stride : j*stride+pool_width], axis = (2, 3))
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -479,6 +543,7 @@ def max_pool_backward_naive(dout, cache):
   A naive implementation of the backward pass for a max pooling layer.
 
   Inputs:
+
   - dout: Upstream derivatives
   - cache: A tuple of (x, pool_param) as in the forward pass.
 
@@ -489,7 +554,23 @@ def max_pool_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  #set up parameters
+  x, pool_param = cache
+  N, C, H, W = x.shape
+  HH, WW, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+  H_out = (H-HH)/stride+1
+  W_out = (W-WW)/stride+1
+  #init output layer
+  dx = np.zeros_like(x)
+
+  #x: Input data, of shape (N, C, H, W)
+  for i in range(H_out):
+    for j in range(W_out):
+      x_masked = x[:,:,i*stride : i*stride+HH, j*stride : j*stride+WW]
+      max_x_masked = np.max(x_masked,axis=(2,3))
+      temp_binary_mask = (x_masked == (max_x_masked)[:,:,np.newaxis, np.newaxis])
+      dx[:,:,i*stride : i*stride+HH, j*stride : j*stride+WW] += temp_binary_mask * (dout[:,:,i,j])[:,:,np.newaxis,np.newaxis]
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
